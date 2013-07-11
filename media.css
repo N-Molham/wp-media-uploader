@@ -1,0 +1,42 @@
+@CHARSET "UTF-8";
+
+.nab-image-holder {
+	display: inline-block;
+	vertical-align: middle;
+}
+
+.nab-image-holder .image {
+	display: inline-block;
+	margin: 0 3px;
+	position: relative;
+	cursor: pointer;
+}
+
+.nab-image-holder .image::after {
+	content: "X";
+	color: #fff;
+	font-family: 'Comic Sans MS', 'cursive', sans-serif;
+	font-size: 4em;
+	text-align: center;
+	line-height: 1.5em;
+	display: none;
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	background: rgba(0, 0, 0, 0.5);
+}
+
+.nab-image-holder .image:hover::after {
+	display: block;
+}
+
+.nab-image-holder img {
+	vertical-align: middle;
+}
+
+.nab-remove-confirm,
+.nab-inputs {
+	display: none;
+}

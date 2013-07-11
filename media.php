@@ -19,8 +19,8 @@ $nab_media_pages = array (
 $nab_locale_data = array (
 		'frame_title' => __('Select an Image'),
 		'select_button_label' => __('Use Image'),
+		'remove_confirm_message' => __('Are you sure ?'),
 		'file_type' => 'image',
-		'multiple' => 'no',
 		'image_placeholder_width' => '70',
 		'image_placeholder_height' => '70',
 );
@@ -78,6 +78,10 @@ function nab_media_uploader_enqueue_scripts()
 		if ( apply_filters('nab_wp_ver_check', nab_wp_new_version(), $screen) )
 		{
 			// load new media uploader
+			// css
+			wp_enqueue_style( 'nab-media-uploader-style', $nab_base_url . 'media.css' );
+
+			// js
 			wp_enqueue_script( 'nab-live-query' );
 			wp_enqueue_media();
 			wp_register_script( 'nab-media-uploader', $nab_base_url . 'media.js', array('jquery'), false, true );
@@ -126,10 +130,8 @@ function nab_media_uploader_input( $image, $args = '' )
 	$is_multiple = 'yes' == $args['multiple'];
 
 	// image(s) data
-	if ( $is_multiple )
+	if ( !$is_multiple ) 
 		$image = wp_parse_args( $image, array ('url' => '', 'id' => 0) );
-	else 
-		$image = wp_parse_args( $image, array () );
 
 	// image(s) filter
 	$image = apply_filters('nab_image_data', $image);
@@ -139,7 +141,7 @@ function nab_media_uploader_input( $image, $args = '' )
 			'input_name' => 'ml_image',
 			'input_id_name' => 'id',
 			'input_url_name' => 'url',
-			'multiple' => $nab_locale_data['multiple'],
+			'multiple' => 'no',
 			'data_array' => true,
 	) );
 	$args = apply_filters('nab_image_args', $args);
@@ -148,44 +150,78 @@ function nab_media_uploader_input( $image, $args = '' )
 	$img_size = 'width="'. $nab_locale_data['image_placeholder_width'] .'" height="'. $nab_locale_data['image_placeholder_height'] .'"';
 
 	// image(s) holder
-	$out = '<span style="display:inline-block;vertical-align:middle;" class="image-holder">';
+	$out = '<span class="image-holder nab-image-holder'. ( $is_multiple ? ' multiple' : '' ) .'">';
+
+	// inputs
+	$inputs_fields = '';
+	$inputs_name = array (
+			'id' => $args['data_array'] ? $args['input_name'] . '['. $args['input_id_name'] .']' : $args['input_id_name'],
+			'url' => $args['data_array'] ? $args['input_name'] . '['. $args['input_url_name'] .']' : $args['input_url_name'],
+	);
+	if ( $is_multiple )
+	{
+		$inputs_name = array (
+				'id' => $args['data_array'] ? $args['input_name'] . '[%d]['. $args['input_id_name'] .']' : $args['input_id_name'] . '[%d]',
+				'url' => $args['data_array'] ? $args['input_name'] . '[%d]['. $args['input_url_name'] .']' : $args['input_url_name'] . '[%d]',
+		);
+	}
+
+	// is there file(s) selected or not
+	$is_selected = null;
 
 	if ( $is_multiple )
 	{
 		// multiple files
+		// image item defaults
 		$item_defualt = array (
-				'url' => '', 
 				'id' => 0,
+				'url' => '', 
 		);
 
+		// clear single file value if it was
+		if ( isset($image['id']) )
+			$image = array( $item_defualt );
+
 		// loop
-		foreach ( $image as $item )
+		foreach ( $image as $index => $item )
 		{
 			$item = wp_parse_args($item, $item_defualt);
-			$out .= '<span class="image"><img src="'. ( '' == $item['url'] ? $nab_locale_data['image_placeholder'] : $item['url'] ) .'" '. $img_size .' /></span>';
+
+			// set is_selected
+			if ( null === $is_selected )
+				$is_selected = '' != $item['url'];
+
+			$out .= '<span class="image image-'. $index .'" data-index="'. $index .'"><img src="'. ( '' == $item['url'] ? $nab_locale_data['image_placeholder'] : $item['url'] ) .'" '. $img_size .' /></span>';
+			$inputs_fields .= '<input name="'. sprintf($inputs_name['id'], $index) .'" type="hidden" value="'. (int) esc_attr( $item['id'] ) .'" class="image-id image-'. $index .'" />';
+			$inputs_fields .= '<input name="'. sprintf($inputs_name['url'], $index) .'" type="hidden" value="'. esc_attr( $item['url'] ) .'" class="image-url image-'. $index .'" />';
 		}
 	}
 	else
 	{
 		// single file
-		$out .= '<img src="'. ( '' == $image['url'] ? $nab_locale_data['image_placeholder'] : $image['url'] ) .'" '. $img_size .' />';
-	} 
+		$is_selected = '' != $item['url'];
+		$out .= '<img src="'. ( $is_selected ? $image['url'] : $nab_locale_data['image_placeholder'] ) .'" '. $img_size .' />';
+		$inputs_fields .= '<input name="'. $inputs_name['id'] .'" type="hidden" value="'. (int) esc_attr( $image['id'] ) .'" class="image-id" />';
+		$inputs_fields .= '<input name="'. $inputs_name['url'] .'" type="hidden" value="'. esc_attr( $image['url'] ) .'" class="image-url" />';
+	}
 	$out .= '</span>';
 
 	// library and remove buttons
-	$out .= '&nbsp;&nbsp;&nbsp;<input type="button" class="ml-image button" value="'. apply_filters('nab_uploader_button_label', __('Media Library')) .'" />';
-	$out .= '&nbsp;&nbsp;&nbsp;<input type="button" class="ml-image-remove button" value="'. apply_filters('nab_remove_button_label', __('Remove')) .'"'. ('' == $image['url'] ? ' style="display: none;"' : '') .' />';
+	$out .= '&nbsp;&nbsp;&nbsp;<input type="button" class="ml-image button'. ( $is_multiple ? ' multiple' : '' ) .'" value="'. apply_filters('nab_uploader_button_label', __('Media Library')) .'" />';
+	$out .= '&nbsp;&nbsp;&nbsp;<input type="button" class="ml-image-remove button" value="';
+	$out .= apply_filters('nab_remove_button_label', $is_multiple ? __('Remove All') : __('Remove'));
+	$out .= '"'. ( $is_selected ? '' : ' style="display: none;"') .' />';
 
 	// remove confirm
-	$out .= '<span class="remove-confirm" style="display:none;">';
-	$out .= apply_filters('nab_remove_confirm_message', __('Are you sure you want to remove it ?'));
+	$out .= '<span class="remove-confirm nab-remove-confirm">';
+	$out .= apply_filters('nab_remove_confirm_message', __('Are you sure ?'));
 	$out .= '&nbsp;&nbsp;&nbsp;<input type="button" class="button confirm-button confirm-yes" value="'. apply_filters('nab_remove_confirm_yes', __('Yes')) .'" />';
 	$out .= '&nbsp;&nbsp;&nbsp;<input type="button" class="button confirm-button confirm-no" value="'. apply_filters('nab_remove_confirm_no', __('No')) .'" />';
 	$out .= '</span>';
 
-	// inputs
-	$out .= '<input name="'. ( $args['data_array'] ? $args['input_name'] . '['. $args['input_id_name'] .']' : $args['input_id_name'] ) .'" type="hidden" value="'. (int) esc_attr( $image['id'] ) .'" class="image-id" />';
-	$out .= '<input name="'. ( $args['data_array'] ? $args['input_name'] . '['. $args['input_url_name'] .']' : $args['input_url_name'] ) .'" type="hidden" value="'. esc_attr( $image['url'] ) .'" class="image-url" />';
+	// inputs output
+	$out .= '<span class="inputs nab-inputs">'. $inputs_fields .'</span>';
+	$out .= '<script>var nab_inputs_name = '. json_encode($inputs_name) .';</script>';
 
 	return apply_filters('nab_image_output', $out);
 }
@@ -224,5 +260,5 @@ function nab_test_admin_init()
  */
 function nab_muploader_test_field()
 {
-	echo nab_media_uploader_input( (array) get_option('nab_muploader_test'), array( 'input_name' => 'nab_muploader_test', 'muliple' => 'no' ) );
+	echo nab_media_uploader_input( (array) get_option('nab_muploader_test'), array( 'input_name' => 'nab_muploader_test', 'multiple' => 'yes' ) );
 }
