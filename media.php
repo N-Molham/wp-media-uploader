@@ -11,8 +11,8 @@ $nab_base_url = '';
 
 // pages list to enqueue scripts
 $nab_media_pages = array (
-		'post',
 		'product',
+		'options-media',
 );
 
 // locale data sent to js
@@ -122,11 +122,16 @@ function nab_media_uploader_input( $image, $args = '' )
 {
 	global $nab_locale_data;
 
+	// multiple files
+	$is_multiple = 'yes' == $args['multiple'];
+
 	// image(s) data
-	$image = wp_parse_args( $image, array (
-			'url' => '',
-			'id' => 0,
-	) );
+	if ( $is_multiple )
+		$image = wp_parse_args( $image, array ('url' => '', 'id' => 0) );
+	else 
+		$image = wp_parse_args( $image, array () );
+
+	// image(s) filter
 	$image = apply_filters('nab_image_data', $image);
 
 	// image arguments
@@ -139,12 +144,32 @@ function nab_media_uploader_input( $image, $args = '' )
 	) );
 	$args = apply_filters('nab_image_args', $args);
 
-	if ( 'yes' == $args['multiple'] )
-		return 'Still Working On Multiple selection :D Stay tuned.';
+	// image placeholder size
+	$img_size = 'width="'. $nab_locale_data['image_placeholder_width'] .'" height="'. $nab_locale_data['image_placeholder_height'] .'"';
 
 	// image(s) holder
 	$out = '<span style="display:inline-block;vertical-align:middle;" class="image-holder">';
-	$out .= '<img src="'. ('' == $image['url'] ? $nab_locale_data['image_placeholder'] : $image['url']) .'" width="'. $nab_locale_data['image_placeholder_width'] .'" height="'. $nab_locale_data['image_placeholder_height'] .'" />';
+
+	if ( $is_multiple )
+	{
+		// multiple files
+		$item_defualt = array (
+				'url' => '', 
+				'id' => 0,
+		);
+
+		// loop
+		foreach ( $image as $item )
+		{
+			$item = wp_parse_args($item, $item_defualt);
+			$out .= '<span class="image"><img src="'. ( '' == $item['url'] ? $nab_locale_data['image_placeholder'] : $item['url'] ) .'" '. $img_size .' /></span>';
+		}
+	}
+	else
+	{
+		// single file
+		$out .= '<img src="'. ( '' == $image['url'] ? $nab_locale_data['image_placeholder'] : $image['url'] ) .'" '. $img_size .' />';
+	} 
 	$out .= '</span>';
 
 	// library and remove buttons
@@ -177,3 +202,27 @@ function nab_wp_new_version()
 	return version_compare($wp_version, '3.5', '>=');
 }
 
+// simply comment the next line to disable TEST section
+add_action('admin_init', 'nab_test_admin_init');
+/**
+ * TEST: WP Admin init 
+ */
+function nab_test_admin_init()
+{
+	// Add the section to media settings
+ 	add_settings_section('nab_muploader_text_section', 'Media Uploader Test Section', '__return_false', 'media');
+
+ 	// Add the field with the section
+ 	add_settings_field('nab_muploader_test', 'Media Uploader Test', 'nab_muploader_test_field', 'media', 'nab_muploader_text_section');
+ 	
+ 	// Register our setting
+ 	register_setting('media','nab_muploader_test');
+}
+
+/**
+ * TEST: setting field callback
+ */
+function nab_muploader_test_field()
+{
+	echo nab_media_uploader_input( (array) get_option('nab_muploader_test'), array( 'input_name' => 'nab_muploader_test', 'muliple' => 'no' ) );
+}
